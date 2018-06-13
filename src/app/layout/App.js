@@ -9,11 +9,13 @@ import SettingsDashboard from "../../features/user/Settings/SettingsDashboard";
 import EventDetailedPage from "../../features/event/EventDetailed/EventDetailedPage";
 import EventForm from "../../features/event/EventForm/EventForm";
 import UserDetailedPage from "../../features/event/EventDetailed/EventDetailedPage";
+import TestComponent from "../../features/testarea/TestComponent";
 
 class App extends Component {
   render() {
     return (
       <div>
+        <TestComponent />
         <Switch>
           <Route exact path="/" component={HomePage} />
         </Switch>
