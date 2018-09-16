@@ -14,10 +14,11 @@ const mapState = (state, ownProps) => {
   if (eventId && state.events.length > 0) {
     event = state.events.filter(event => event.id === eventId)[0];
   }
+
   return event;
 };
 
-const eventDetailPage = event => {
+const eventDetailedPage = event => {
   return (
     <Grid>
       <Grid.Column width={10}>
@@ -32,4 +33,4 @@ const eventDetailPage = event => {
   );
 };
 
-export default connect(mapState)(eventDetailPage);
+export default connect(mapState)(eventDetailedPage);

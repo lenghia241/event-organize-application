@@ -1,29 +1,36 @@
+/*global google */
+
 import React, { Component } from "react";
 import { connect } from "react-redux";
 import { reduxForm, Field } from "redux-form";
 import { Segment, Form, Button, Grid, Header } from "semantic-ui-react";
+import {
+  combineValidators,
+  composeValidators,
+  isRequired,
+  hasLengthGreaterThan
+} from "revalidate";
+import { geocodeByAddress, getLatLng } from "react-places-autocomplete";
+import Script from "react-load-script";
 import { createEvent, updateEvent } from "../eventActions";
+import moment from "moment";
 import cuid from "cuid";
 import TextInput from "../../../app/common/form/TextInput";
 import TextArea from "../../../app/common/form/TextArea";
 import SelectInput from "../../../app/common/form/SelectInput";
+import DateInput from "../../../app/common/form/DateInput";
+import PlaceInput from "../../../app/common/form/PlaceInput";
 
 const mapState = (state, ownProps) => {
   const eventId = ownProps.match.params.id;
 
-  let event = {
-    title: "",
-    date: "",
-    city: "",
-    venue: "",
-    hostedBy: ""
-  };
+  let event = {};
 
   if (eventId && state.events.length > 0) {
     event = state.events.filter(event => event.id === eventId)[0];
   }
   return {
-    event
+    initialValues: event
   };
 };
 
@@ -41,17 +48,67 @@ const category = [
   { key: "travel", text: "Travel", value: "travel" }
 ];
 
+const validate = combineValidators({
+  title: isRequired({ message: "The event title is required" }),
+  category: isRequired({ message: "Please provide acategory" }),
+  description: composeValidators(
+    isRequired({ message: "Description is required" }),
+    hasLengthGreaterThan(4)({
+      message: "Decription need to to at least 5 characters"
+    })
+  )(),
+  city: isRequired("city"),
+  venue: isRequired("venue"),
+  date: isRequired("date")
+});
+
 class EventForm extends Component {
-  onFormSubmit = e => {
-    e.preventDefault();
-    if (this.state.event.id) {
-      this.props.updateEvent(this.state.event);
+  state = {
+    cityLatLng: {},
+    venueLatLng: {},
+    scriptLoaded: false
+  };
+
+  handleScriptLoaded = () => this.setState({ scriptLoaded: true });
+
+  handleCitySelect = selectedCity => {
+    geocodeByAddress(selectedCity)
+      .then(results => getLatLng(results[0]))
+      .then(latlng => {
+        this.setState({
+          cityLatLng: latlng
+        });
+      })
+      .then(() => {
+        this.props.change("city", selectedCity);
+      });
+  };
+
+  handleVenueSelect = selectedVenue => {
+    geocodeByAddress(selectedVenue)
+      .then(results => getLatLng(results[0]))
+      .then(latlng => {
+        this.setState({
+          venueLatLng: latlng
+        });
+      })
+      .then(() => {
+        this.props.change("venue", selectedVenue);
+      });
+  };
+
+  onFormSubmit = values => {
+    values.date = moment(values.date).format();
+    values.venueLatLng = this.state.venueLatLng;
+    if (this.props.initialValues.id) {
+      this.props.updateEvent(values);
       this.props.history.goBack();
     } else {
       const newEvent = {
-        ...this.state.event,
+        ...values,
         id: cuid(),
-        hostPhotoURL: "/assets/user.png"
+        hostPhotoURL: "/assets/user.png",
+        hostedBy: "Bob"
       };
       this.props.createEvent(newEvent);
       this.props.history.push("/events");
@@ -59,12 +116,17 @@ class EventForm extends Component {
   };
 
   render() {
+    const { invalid, pristine, submitting } = this.props;
     return (
       <Grid>
+        <Script
+          url="https://maps.googleapis.com/maps/api/js?key=AIzaSyAoC_2VMPpt3AHYdSmmE9BRK73S9fHCY5E&libraries=places"
+          onLoad={this.handleScriptLoaded}
+        />
         <Grid.Column width={10}>
           <Segment>
             <Header sub color="teal" content="Event Details" />
-            <Form onSubmit={this.onFormSubmit}>
+            <Form onSubmit={this.props.handleSubmit(this.onFormSubmit)}>
               <Field
                 name="title"
                 type="text"
@@ -89,22 +151,41 @@ class EventForm extends Component {
               <Field
                 name="city"
                 type="text"
-                component={TextInput}
+                component={PlaceInput}
+                options={{ types: ["(cities)"] }}
                 placeholder="Event City"
+                onSelect={this.handleCitySelect}
               />
-              <Field
-                name="venue"
-                type="text"
-                component={TextInput}
-                placeholder="Event Venue"
-              />
+              <br />
+              {this.state.scriptLoaded && (
+                <Field
+                  name="venue"
+                  type="text"
+                  component={PlaceInput}
+                  options={{
+                    location: new google.maps.LatLng(this.state.cityLatLng),
+                    radius: 1000,
+                    types: ["establishment"]
+                  }}
+                  placeholder="Event Venue"
+                  onSelect={this.handleVenueSelect}
+                />
+              )}
+              <br />
               <Field
                 name="date"
                 type="text"
-                component={TextInput}
-                placeholder="Event Date"
+                component={DateInput}
+                dateFormat="YYYY-MM-DD HH:mm"
+                time="HH:mm"
+                showTimeSelect
+                placeholder="Date and Time of event"
               />
-              <Button positive type="submit">
+              <Button
+                disabled={invalid || pristine || submitting}
+                positive
+                type="submit"
+              >
                 Submit
               </Button>
               <Button onClick={this.props.history.goBack} type="button">
@@ -121,4 +202,8 @@ class EventForm extends Component {
 export default connect(
   mapState,
   actions
-)(reduxForm({ form: "eventForm" })(EventForm));
+)(
+  reduxForm({ form: "eventForm", enableReinitialize: true, validate })(
+    EventForm
+  )
+);
