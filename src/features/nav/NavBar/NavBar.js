@@ -1,9 +1,15 @@
 import React, { Component } from "react";
+import { connect } from "react-redux";
 import { NavLink, Link, withRouter } from "react-router-dom";
 import { Menu, Container, Button } from "semantic-ui-react";
 
 import SignedInMenu from "../Menus/SignedInMenu";
 import SignedOutMenu from "../Menus/SignedOutMenu";
+import { openModal } from "../../modals/modalActions";
+
+const actions = {
+  openModal
+};
 
 class NavBar extends Component {
   state = {
@@ -61,4 +67,9 @@ class NavBar extends Component {
   }
 }
 
-export default withRouter(NavBar);
+export default withRouter(
+  connect(
+    null,
+    actions
+  )(NavBar)
+);
